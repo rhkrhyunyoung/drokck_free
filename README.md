@@ -9,7 +9,10 @@ ros2 run drokck track_1_4_node
 ```
 
 /cmd_vel_nav	geometry_msgs/Twist	라인 트레이서의 주행 제안 속도
+
 /yolo_detected_object	std_msgs/String	YOLO 객체 인식 결과 (STOP, GO, cargo_zone)
+
 /imu/data	sensor_msgs/Imu	슬립 보정을 위한 차체 각속도 데이터
+
 /cmd_vel	geometry_msgs/Twist	최종 결정된 차체 구동 속도
 
