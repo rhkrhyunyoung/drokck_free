@@ -38,7 +38,7 @@ public:
         torque_multiplier = 1.0;
         current_yaw_rate_ = 0.0;
         
-        RCLCPP_INFO(this->get_logger(), "=== 미션 매니저 가동 시작 ===");
+        RCLCPP_INFO(this->get_logger(), "=== mission start ===");
     }
 
 private:
@@ -47,19 +47,19 @@ private:
         
         if (label == "STOP") {
             if (!g_traffic_signal_stop) {
-                RCLCPP_ERROR(this->get_logger(), "🔴 [STOP] 신호 인식! 주행을 중단합니다.");
+                RCLCPP_ERROR(this->get_logger(), "=== STOP ===");
                 g_traffic_signal_stop = true;
             }
         } else if (label == "GO") {
             if (g_traffic_signal_stop) {
-                RCLCPP_INFO(this->get_logger(), "🟢 [GO] 신호 인식! 주행을 재개합니다.");
+                RCLCPP_INFO(this->get_logger(), "=== GO ===");
                 g_traffic_signal_stop = false;
             }
-        } else if (label == "cargo_zone") {
+        } else if (label == "supply_box") {
             if (!is_supply_box_waiting) {
                 is_supply_box_waiting = true;
                 supply_box_start_time = this->now();
-                RCLCPP_WARN(this->get_logger(), "📦 [SUPPLY_BOX] 구역 진입! 20초간 정지합니다.");
+                RCLCPP_WARN(this->get_logger(), "=== Supply Box ===");
             }
         }
     }
@@ -80,9 +80,9 @@ private:
             if (elapsed < 20.0) {
                 out_msg.linear.x = 0.0;
                 out_msg.angular.z = 0.0;
-                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "📦 보급 대기 중... (%.1f/20s)", elapsed);
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "=== Waiting... (%.1f/20s) ===", elapsed);
             } else {
-                RCLCPP_INFO(this->get_logger(), "✨ 보급 완료! 주행을 계속합니다.");
+                RCLCPP_INFO(this->get_logger(), "=== Done ===");
                 is_supply_box_waiting = false;
             }
         }
@@ -97,7 +97,7 @@ private:
                     double dur = (this->now() - slip_start_time).seconds();
                     if (dur > 3.0) {
                         torque_multiplier = std::min(4.0, 1.0 + (dur - 3.0) * 0.5);
-                        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "⚠️ 슬립 보정 중! 토크 배율: %.1fx", torque_multiplier);
+                        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "=== Slip Correction : %.1fx ===", torque_multiplier);
                     }
                 }
             } else {
