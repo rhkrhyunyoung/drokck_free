@@ -14,13 +14,15 @@ ros2 run drokck track_1_4_node
 # Behavior Tree
 
 graph TD
-    A[Start] --> B{Is System OK?}
-    B -- Yes --> C[Get cmd_vel_nav]
-    C --> D{Apply Constraints}
-    D --> E[Publish cmd_vel]
-    B -- No --> F[Stop Robot]
+A[Start] --> B{Is System OK?}
+B -- Yes --> C[Get cmd_vel_nav]
+C --> D{Apply Constraints}
+D --> E[Publish cmd_vel]
+B -- No --> F[Stop Robot]
+
 
 /cmd_vel_nav	geometry_msgs/msg/Twist	(Input) 네비게이션 스택에서 생성된 속도
+
 /cmd_vel	geometry_msgs/msg/Twist	(Output) 로봇 베이스로 전달되는 최종 속도
 
 drokck_free/
