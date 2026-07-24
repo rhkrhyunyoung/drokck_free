@@ -88,34 +88,30 @@ private:
         }
         // 3. 정상 주행 및 슬립 보정
         else {
-            const double BASE_MULTIPLIER = 1.2;
-            const double MAX_MULTIPLIER = 5.0;
-            RCLCPP_INFO(this->get_logger(), "CMD: %.2f, IMU: %.2f, Diff: %.2f", 
-            raw_angular, current_yaw_rate_, std::abs(raw_angular - current_yaw_rate_));
             // 슬립 보정 로직
             if (std::abs(raw_linear) > 0.05 && std::abs(raw_angular - current_yaw_rate_) > 0.3) {
                 if (!is_slipping) {
                     is_slipping = true;
                     slip_start_time = this->now();
-                    torque_multiplier = BASE_MULTIPLIER;
                 } else {
                     double dur = (this->now() - slip_start_time).seconds();
                     if (dur > 3.0) {
-                        torque_multiplier = MAX_MULTIPLIER;
-                        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 500, 
-                    "!!! CRITICAL SLIP : Max Torque Applied (%.1fx) !!!", torque_multiplier);
-                    } else {
-                        torque_multiplier = BASE_MULTIPLIER;
+                        torque_multiplier = std::min(4.0, 1.0 + (dur - 3.0) * 0.5);
+                        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "=== Slip Correction : %.1fx ===", torque_multiplier);
                     }
                 }
             } else {
                 is_slipping = false;
-                torque_multiplier = BASE_MULTIPLIER;
+                torque_multiplier = 1.0;
             }
+            if (raw_angular > 1.2) raw_angular = 1.2;
+            else if (raw_angular < -1.2) raw_angular = -1.2;
 
             out_msg.linear.x = raw_linear * torque_multiplier;
             out_msg.angular.z = raw_angular;
         }
+
+        // 최종 제어 신호를 차체 드라이버(/cmd_vel)로 발행
         cmd_pub_->publish(out_msg);
     }
 

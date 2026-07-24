@@ -3,16 +3,18 @@
 <package format="3">
   <name>drokck</name>
   <version>0.0.0</version>
-  <description>2025 국방로봇경진대회 차체 자율주행 미션 매니저 패키지</description>
+  <description>2026 국방로봇경진대회 사계절 미션 매니저 패키지</description>
   <maintainer email="rhkrgusdud@todo.todo">rhkrgusdud</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   
   <depend>rclcpp</depend>
-  <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>opencv</depend> <!-- OpenCV 의존성 추가 -->
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
