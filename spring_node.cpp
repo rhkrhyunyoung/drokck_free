@@ -4,54 +4,75 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
 
 class SpringNode : public rclcpp::Node {
 public:
     SpringNode() : Node("Spring_Node") {
-        nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>("/cmd_vel_nav", 10, std::bind(&SpringNode::nav_callback, this, std::placeholders::_1));
-        yolo_sub_ = this->create_subscription<std_msgs::msg::String>("/yolo_bbox_raw", 10, std::bind(&SpringNode::yolo_callback, this, std::placeholders::_1));
-        img_sub_ = this->create_subscription<sensor_msgs::msg::Image>("/camera/image_raw", 10, std::bind(&SpringNode::img_callback, this, std::placeholders::_1));
+        // 1. 카메라 3개 구독 (ros2 topic list 결과와 정확히 일치시킴)
+        sub_l.subscribe(this, "/camera_left/color/image_raw");
+        sub_f.subscribe(this, "/camera_front/color/image_raw");
+        sub_r.subscribe(this, "/camera_right/color/image_raw");
+
+        // 2. 시간 동기화 설정
+        sync_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(
+            SyncPolicy(10), sub_l, sub_f, sub_r);
+        sync_->registerCallback(std::bind(&SpringNode::combined_callback, this, 
+                                std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+        // 3. 주행 및 YOLO 데이터
+        yolo_sub_ = this->create_subscription<std_msgs::msg::String>(
+            "/yolo_bbox_raw", 10, [this](const std_msgs::msg::String::SharedPtr msg) {
+                if (msg->data.find("ally") != std::string::npos) RCLCPP_INFO(this->get_logger(), ">> ALLY!");
+                else if (msg->data.find("enemy") != std::string::npos) RCLCPP_ERROR(this->get_logger(), ">> ENEMY!");
+            });
+
+        nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
+            "/cmd_vel_nav", 10, [this](const geometry_msgs::msg::Twist::SharedPtr msg) { this->current_nav = *msg; });
+        
         cmd_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+
+        RCLCPP_INFO(this->get_logger(), "=== [SPRING] 3-Cam Full Mission Mode ON ===");
     }
 
 private:
-    void yolo_callback(const std_msgs::msg::String::SharedPtr msg) {
-        last_bbox_data = msg->data; // "label,x,y,w,h" 저장
-    }
+    void combined_callback(const sensor_msgs::msg::Image::ConstSharedPtr& ml,
+                           const sensor_msgs::msg::Image::ConstSharedPtr& mf,
+                           const sensor_msgs::msg::Image::ConstSharedPtr& mr) 
+    {
+        auto cv_l = cv_bridge::toCvCopy(ml, "bgr8")->image;
+        auto cv_f = cv_bridge::toCvCopy(mf, "bgr8")->image;
+        auto cv_r = cv_bridge::toCvCopy(mr, "bgr8")->image;
 
-    void img_callback(const sensor_msgs::msg::Image::SharedPtr msg) {
-        auto cv_ptr = cv_bridge::toCvCopy(msg, "bgr8");
-        draw_and_show(cv_ptr->image);
-    }
+        // 가로로 합치기 (왼쪽 | 정면 | 오른쪽)
+        cv::Mat combined;
+        cv::hconcat(std::vector<cv::Mat>{cv_l, cv_f, cv_r}, combined);
 
-    void draw_and_show(cv::Mat &img) {
-        if (!last_bbox_data.empty()) {
-            std::stringstream ss(last_bbox_data);
-            std::string label, sx, sy, sw, sh;
-            std::getline(ss, label, ','); std::getline(ss, sx, ','); std::getline(ss, sy, ',');
-            std::getline(ss, sw, ','); std::getline(ss, sh, ',');
-            try {
-                int x = std::stoi(sx), y = std::stoi(sy), w = std::stoi(sw), h = std::stoi(sh);
-                cv::Scalar color = (label == "ally") ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255);
-                cv::rectangle(img, cv::Rect(x, y, w, h), color, 3);
-                cv::putText(img, label, cv::Point(x, y-10), cv::FONT_HERSHEY_SIMPLEX, 0.8, color, 2);
-            } catch (...) {}
-        }
-        cv::imshow("Spring_Vision", img);
+        // 주행 명령: 봄 구간 서행 (60%)
+        auto out_msg = current_nav;
+        out_msg.linear.x *= 0.6;
+        cmd_pub_->publish(out_msg);
+
+        // 화면 띄우기
+        cv::imshow("Robot_Triple_Vision", combined);
         cv::waitKey(1);
     }
 
-    void nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
-        auto out_msg = *msg;
-        out_msg.linear.x *= 0.6; // 안개구간 서행
-        cmd_pub_->publish(out_msg);
-    }
-
-    std::string last_bbox_data;
-    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr nav_sub_;
+    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image, sensor_msgs::msg::Image> SyncPolicy;
+    std::shared_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
+    message_filters::Subscriber<sensor_msgs::msg::Image> sub_l, sub_f, sub_r;
+    
+    geometry_msgs::msg::Twist current_nav;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr yolo_sub_;
-    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr img_sub_;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr nav_sub_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
 };
 
-int main(int argc, char **argv) { rclcpp::init(argc, argv); rclcpp::spin(std::make_shared<SpringNode>()); rclcpp::shutdown(); return 0; }
+int main(int argc, char **argv) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<SpringNode>());
+    rclcpp::shutdown();
+    return 0;
+}

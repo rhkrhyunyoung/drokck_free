@@ -16,6 +16,7 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED) # OpenCV 로드
+find_package(message_filters REQUIRED)
 
 # 의존성 리스트 정리
 set(dependencies
@@ -24,6 +25,7 @@ set(dependencies
   std_msgs
   sensor_msgs
   cv_bridge
+  message_filters
 )
 
 # -----------------------------------------------------------------
