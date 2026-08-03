@@ -14,40 +14,70 @@ public:
         sub_l.subscribe(this, "/camera_left/color/image_raw");
         sub_f.subscribe(this, "/camera_front/color/image_raw");
         sub_r.subscribe(this, "/camera_right/color/image_raw");
-        sync_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(10), sub_l, sub_f, sub_r);
-        sync_->registerCallback(std::bind(&SummerNode::combined_callback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-        
-        yolo_sub_ = this->create_subscription<std_msgs::msg::String>("/yolo_bbox_raw", 10, [this](const std_msgs::msg::String::SharedPtr msg){
-            if (msg->data.find("red_light") != std::string::npos) is_red = true;
-            else if (msg->data.find("green_light") != std::string::npos) is_red = false;
-            if (msg->data.find("supply_box") != std::string::npos && !is_wait) { is_wait = true; start_t = this->now(); }
-        });
-        nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>("/cmd_vel_nav", 10, [this](const geometry_msgs::msg::Twist::SharedPtr msg){ current_nav = *msg; });
-        cmd_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
-    }
-private:
-    void combined_callback(const sensor_msgs::msg::Image::ConstSharedPtr& ml, const sensor_msgs::msg::Image::ConstSharedPtr& mf, const sensor_msgs::msg::Image::ConstSharedPtr& mr) {
-        auto cv_l = cv_bridge::toCvCopy(ml, "bgr8")->image;
-        auto cv_f = cv_bridge::toCvCopy(mf, "bgr8")->image;
-        auto cv_r = cv_bridge::toCvCopy(mr, "bgr8")->image;
-        cv::resize(cv_l, cv_l, cv::Size(400,300)); cv::resize(cv_f, cv_f, cv::Size(400,300)); cv::resize(cv_r, cv_r, cv::Size(400,300));
-        cv::Mat combined; cv::hconcat(std::vector<cv::Mat>{cv_l, cv_f, cv_r}, combined);
 
-        auto out_msg = geometry_msgs::msg::Twist();
-        if (is_red) { out_msg.linear.x = 0.0; } // 빨간불 정지
-        else if (is_wait && (this->now() - start_t).seconds() < 20.0) { out_msg.linear.x = 0.0; } // 상자 대기
-        else { is_wait = false; out_msg = current_nav; }
-        
-        cmd_pub_->publish(out_msg);
-        cv::imshow("Summer_3Cam_Vision", combined); cv::waitKey(1);
+        sync_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(100), sub_l, sub_f, sub_r);
+        sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(0.5));
+        sync_->registerCallback(std::bind(&SummerNode::process_all, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+        yolo_sub_ = this->create_subscription<std_msgs::msg::String>("/yolo_bbox_raw", 10, [this](const std_msgs::msg::String::SharedPtr msg) {
+            std::string data = msg->data;
+            if (data.find("red_light") != std::string::npos) is_red_light = true;
+            else if (data.find("green_light") != std::string::npos) is_red_light = false;
+            
+            if (data.find("supply_box") != std::string::npos && !is_waiting) {
+                is_waiting = true;
+                wait_start_time = this->now();
+            }
+        });
+
+        nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>("/cmd_vel_nav", 10, [this](const geometry_msgs::msg::Twist::SharedPtr msg) { this->current_nav = *msg; });
+        cmd_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+        ui_image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/ui_combined_vision", 10);
     }
+
+private:
+    void process_all(const sensor_msgs::msg::Image::ConstSharedPtr& ml, const sensor_msgs::msg::Image::ConstSharedPtr& mf, const sensor_msgs::msg::Image::ConstSharedPtr& mr) {
+        try {
+            cv::Mat img_l = cv_bridge::toCvCopy(ml, "bgr8")->image;
+            cv::Mat img_f = cv_bridge::toCvCopy(mf, "bgr8")->image;
+            cv::Mat img_r = cv_bridge::toCvCopy(mr, "bgr8")->image;
+
+            cv::Size target_size(640, 480);
+            cv::resize(img_l, img_l, target_size); cv::resize(img_f, img_f, target_size); cv::resize(img_r, img_r, target_size);
+
+            cv::Mat combined;
+            cv::hconcat(std::vector<cv::Mat>{img_l, img_f, img_r}, combined);
+
+            // 주행 제어 로직
+            auto out_msg = geometry_msgs::msg::Twist();
+            if (is_red_light) {
+                out_msg.linear.x = 0.0; out_msg.angular.z = 0.0;
+            } else if (is_waiting) {
+                double elapsed = (this->now() - wait_start_time).seconds();
+                if (elapsed < 20.0) { out_msg.linear.x = 0.0; out_msg.angular.z = 0.0; }
+                else { is_waiting = false; out_msg = current_nav; }
+            } else {
+                out_msg = current_nav;
+            }
+            cmd_pub_->publish(out_msg);
+
+            cv::Mat ui_view; cv::resize(combined, ui_view, cv::Size(), 0.5, 0.5);
+            auto msg = cv_bridge::CvImage(ml->header, "bgr8", ui_view).toImageMsg();
+            ui_image_pub_->publish(*msg);
+            cv::imshow("Summer_Integrated_Vision", ui_view); cv::waitKey(1);
+        } catch (cv::Exception& e) { RCLCPP_ERROR(this->get_logger(), "OpenCV Error: %s", e.what()); }
+    }
+
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image, sensor_msgs::msg::Image> SyncPolicy;
     std::shared_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
     message_filters::Subscriber<sensor_msgs::msg::Image> sub_l, sub_f, sub_r;
     geometry_msgs::msg::Twist current_nav;
-    bool is_red = false, is_wait = false; rclcpp::Time start_t;
+    bool is_red_light = false, is_waiting = false;
+    rclcpp::Time wait_start_time;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr yolo_sub_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr nav_sub_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ui_image_pub_;
 };
+
 int main(int argc, char **argv) { rclcpp::init(argc, argv); rclcpp::spin(std::make_shared<SummerNode>()); rclcpp::shutdown(); return 0; }
