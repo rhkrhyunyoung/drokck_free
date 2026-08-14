@@ -37,6 +37,14 @@ add_executable(spring_node spring_node.cpp)
 ament_target_dependencies(spring_node ${dependencies})
 target_link_libraries(spring_node ${OpenCV_LIBRARIES})
 
+add_executable(spring_stuck_node spring_stuck_node.cpp)
+ament_target_dependencies(spring_node ${dependencies})
+target_link_libraries(spring_node ${OpenCV_LIBRARIES})
+
+add_executable(spring0_node spring0_node.cpp)
+ament_target_dependencies(spring_node ${dependencies})
+target_link_libraries(spring_node ${OpenCV_LIBRARIES})
+
 # 여름 노드
 add_executable(summer_node summer_node.cpp)
 ament_target_dependencies(summer_node ${dependencies})
@@ -64,6 +72,8 @@ endif()
 # -----------------------------------------------------------------
 install(TARGETS
   spring_node
+  spring_stuck_node
+  spring0_node
   summer_node
   autumn_node
   winter_node
