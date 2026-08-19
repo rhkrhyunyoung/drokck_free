@@ -1,6 +1,6 @@
 # drokck_free
 
-Navigation 명령(cmd_vel_nav)을 받아 최종 로봇 속도(cmd_vel)로 제어하는 Behavior Tree 기반 미들웨어 패키지입니다.
+Navigation 명령(cmd_vel_nav)을 받아 최종 로봇 속도(cmd_vel)로 제어하는 Behavior Tree 기반 YOLO 토픽을 받는 미들웨어 패키지입니다.
 
 <p align="center">
   <img src="https://img.shields.io/github/stars/rhkrhyunyoung/drokck_free?style=for-the-badge&logo=github" alt="Stars">
