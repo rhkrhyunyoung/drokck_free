@@ -41,12 +41,9 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(realsense_launch_path),
         launch_arguments={
             'enable_color': 'true',
-            'enable_depth': 'true', 
+            'enable_depth': 'false', 
             'serial_no': "'234322302402'", # 작은따옴표 안에 큰따옴표를 넣어 문자열임을 명시
-            'rgb_camera.color_profile': '848x480x15', 
-            'depth_module.depth_profile': '848x480x15',
-            'align_depth.enable': 'true',
-            'initial_reset': 'true'
+            'rgb_camera.color_profile': '848x480x15'
         }.items(),
         condition=LaunchConfigurationEquals('season', 'summer')
     )
@@ -66,11 +63,11 @@ def generate_launch_description():
         output='screen'
     )
 
-    # 8. YOLO (q 노드) - 봄, 여름, 겨울
+    # 8. YOLO (q 노드) - 봄, 여름
     yolo_q = Node(
         package='yolo_xyz_publisher', 
         executable='q',
-        condition=IfCondition(PythonExpression(["'", season, "' in ['spring', 'summer', 'winter']"]))
+        condition=IfCondition(PythonExpression(["'", season, "' in ['spring', 'summer']"]))
     )
 
     # 9. YOLO (Python 스크립트) - 가을 전용
