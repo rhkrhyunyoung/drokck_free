@@ -1,0 +1,43 @@
+국방로봇 경진대회 미션별  NUC 코드 실행 list(15기 이윤재)
+
+<<RC 버젼>>
+
+1. 여름 mission아닐때
+ros2 run drokck drokck_rc
+
+2. 여름 mission일때
+ros2 launch av_combine av_combine.launch.py
+
+
+<<자율주행 버젼>>
+1. 추종 mission
+ros2 run drokck drokck_auto
+or
+mission5
+
+2. 봄 mission
+ros2 launch stop_rotation_filter stop_rotation_filter.launch.py 
+ros2 run drokck drokck_auto
+
+3. 여름 mission
+ros2 run drokck_free summer_node
+ros2 run drokck drokck_auto
+
+4. 가을 mission
+ros2 launch cmd_vel_periodic_remapper remapper.launch.py 
+ros2 run drokck drokck_auto
+
+5. 겨울 mission
+파라미터 변경 : /yunjae/stop_rotation_filter/src/config 경로에 있는 stop_rotation_filter.yaml 수정
+true_angular_gain: 1.0 -> 1.3
+false_angular_gain: 1.0 -> 1.3
+수정 이후, build나 source 필요없음 그냥 아래 명령어 실행
+
+ros2 launch stop_rotation_filter stop_rotation_filter.launch.py 
+ros2 run drokck drokck_auto
+
+
+***
+1. ros2 run drokck drokck_auto, ros2 run drokck drokck_rc가 tab으로 완성이 안될때 새로운 터미널 열어서 입력시도.
+
+2. 
