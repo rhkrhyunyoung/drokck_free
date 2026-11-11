@@ -13,18 +13,13 @@ class AutumnNode : public rclcpp::Node {
 public:
     AutumnNode() : Node("Autumn_Node") {
         sub_l.subscribe(this, "/camera_left/color/image_raw");
-        sub_f.subscribe(this, "/camera_front/color/image_raw");
+        sub_f.subscribe(this, "/camera/camera/color/image_raw");
         sub_r.subscribe(this, "/camera_right/color/image_raw");
 
         sync_ = std::make_shared<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(100), sub_l, sub_f, sub_r);
         sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(0.5));
         sync_->registerCallback(std::bind(&AutumnNode::process_all, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
-        // IMU 데이터 구독 추가
-        imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
-            "/imu", 10, [this](const sensor_msgs::msg::Imu::SharedPtr msg) {
-                this->current_imu_linear_x = msg->linear_acceleration.x;
-            });
 
         yolo_sub_ = this->create_subscription<std_msgs::msg::String>("/yolo_bbox_raw", 10, [this](const std_msgs::msg::String::SharedPtr msg) {
             if (msg->data.find("aruco") != std::string::npos) {
@@ -32,8 +27,7 @@ public:
             }
         });
 
-        nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>("/cmd_vel_nav", 10, [this](const geometry_msgs::msg::Twist::SharedPtr msg) { this->current_nav = *msg; });
-        cmd_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+        // /cmd_vel_nav 구독 및 /cmd_vel 발행부 제거됨
         ui_image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/ui_combined_vision", 10);
     }
 
@@ -50,17 +44,11 @@ private:
             cv::Mat combined;
             cv::hconcat(std::vector<cv::Mat>{img_l, img_f, img_r}, combined);
 
-            // 주행 제어 로직 (IMU 기반 토크 강화)
-            auto out_msg = current_nav;
-            if (std::abs(current_imu_linear_x) < 0.1) {
-                out_msg.linear.x *= 2.0;
-            }
-            cmd_pub_->publish(out_msg);
+            // 주행 제어 및 발행 로직 제거됨
 
             cv::Mat ui_view; cv::resize(combined, ui_view, cv::Size(), 0.5, 0.5);
             auto msg = cv_bridge::CvImage(ml->header, "bgr8", ui_view).toImageMsg();
             ui_image_pub_->publish(*msg);
-            cv::imshow("Autumn_Integrated_Vision", ui_view); cv::waitKey(1);
         } catch (cv::Exception& e) { RCLCPP_ERROR(this->get_logger(), "OpenCV Error: %s", e.what()); }
     }
 
@@ -68,13 +56,11 @@ private:
     std::shared_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
     message_filters::Subscriber<sensor_msgs::msg::Image> sub_l, sub_f, sub_r;
     
-    geometry_msgs::msg::Twist current_nav;
     double current_imu_linear_x = 0.0; // 가속도 값 저장용 변수
     
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr yolo_sub_;
-    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr nav_sub_;
-    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
+    // nav_sub_ 및 cmd_pub_ 변수 제거됨
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ui_image_pub_;
 };
 
