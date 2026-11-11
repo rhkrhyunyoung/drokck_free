@@ -1,0 +1,148 @@
+국방로봇 경진대회 명령어 list
+
+1. 추종 mission
+
+cd drokck_free
+source install/setup.bash
+ros2 launch drokck free_launch.py season:=summer
+
+python3 cam1_stream.py 
+
+//
+
+cd ros2_ws
+colcon build --packages-select drokck_follower
+source install/setup.bash
+ros2 launch drokck_follower follow.launch.py
+
+python3 cam1_stream.py 
+
+2. 봄
+
+cd drokck_free
+source install/setup.bash
+ros2 launch drokck free_launch.py season:=spring
+
+python3 cam1_stream.py vvvvv
+
+//
+
+cd drokck_free
+source install/setup.bash
+ros2 launch drokck free_launch.py season:=spring
+
+cd yunjae
+source install/setup.bash
+ros2 launch visual_odom_stop_detector camera_rtab_stop.launch.py 
+
+
+python3 cam1_stream.py 
+
+  
+  
+3.여름
+
+cd drokck_free
+source install/setup.bash
+ros2 launch drokck free_launch.py season:=summer
+
+python3 cam1_stream.py 
+
+//
+
+cd drokck_free
+source install/setup.bash
+ros2 launch drokck free_launch.py season:=summer
+
+python3 cam1_stream.py 
+
+4.가을
+cd drokck_free
+source install/setup.bash
+ros2 launch drokck free_launch.py season:=autumn
+
+python3 cam1_stream.py 
+
+//
+
+cd drokck_free
+source install/setup.bash
+ros2 launch drokck free_launch.py season:=autumn
+
+python3 cam1_stream.py 
+
+
+5. 겨울
+
+cd drokck_free
+source install/setup.bash
+ros2 launch drokck free_launch.py season:=winter
+
+python3 cam1_stream.py 
+
+
+//
+
+
+cd drokck_free
+source install/setup.bash
+ros2 launch drokck free_launch.py season:=winter
+
+cd yunjae
+source install/setup.bash
+ros2 launch visual_odom_stop_detector camera_rtab_stop.launch.py 
+
+python3 cam1_stream.py 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+ 
